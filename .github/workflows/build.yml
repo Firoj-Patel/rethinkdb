@@ -20,7 +20,7 @@ jobs:
   # Preflight runs every test and assertion that has no dependency on the build
   # directory.
   preflight:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted]
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
@@ -39,7 +39,7 @@ jobs:
   # Build job runs after the preflight finished successfully. It configures the
   # build system, then builds the DB.
   build:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted]
     timeout-minutes: 35
     needs: preflight
     steps:
@@ -82,7 +82,7 @@ jobs:
 
   # Execute the test runner for unit tests.
   unit-tests:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted]
     timeout-minutes: 15
     needs: build
     steps:
@@ -101,7 +101,7 @@ jobs:
   # NOTE: integration tests are using the Python driver, hence we have to setup the
   #  driver and checkout the exact same commit hash as we do for other tests.
   integration-tests:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted]
     timeout-minutes: 45
     needs: unit-tests
     steps:
@@ -120,7 +120,7 @@ jobs:
             test/run --timeout 300 --jobs "${MAX_JOBS}" -o ${TEST_OUTPUT_DIR} -H all '!unit' '!cpplint' '!long' '!disabled'
 
   long-running-tests:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted]
     timeout-minutes: 60
     needs: unit-tests
     steps:
@@ -144,7 +144,7 @@ jobs:
   #  are running one test per language as a sanity check. We should run language groups
   #  when we ensured that drivers are supporting never interpreter versions.
   polyglot-tests-python:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted]
     timeout-minutes: 15
     needs:
       - integration-tests
@@ -163,7 +163,7 @@ jobs:
           test_target: polyglot
 
   polyglot-tests-javascript:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted]
     timeout-minutes: 15
     needs:
       - integration-tests
@@ -192,7 +192,7 @@ jobs:
           install_command: npm install && npm run build
 
   polyglot-tests-ruby:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted]
     timeout-minutes: 15
     needs:
       - integration-tests
