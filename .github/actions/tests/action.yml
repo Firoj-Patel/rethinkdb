@@ -1,3 +1,4 @@
+
 name: Test base
 description: Base action for running steps
 
@@ -10,11 +11,14 @@ inputs:
     default: "true"
     required: false
   test_output_dir:
-    description: Directory to store test output.
-    default: /tmp/test-results
+    description: Directory to store test output (will be overridden to a unique dir unless explicitly set).
+    default: ""
+    required: false
+  artifact_name:
+    description: Name of the build artifact to download (must match the build job upload name).
+    default: build-artifacts
     required: false
 
-# Composite step for using the test runner with multiple parameters.
 runs:
   using: composite
   steps:
@@ -28,28 +32,53 @@ runs:
       uses: actions/download-artifact@v4
       if: ${{ inputs.download_artifacts == 'true' }}
       with:
-        name: build-artifacts
+        name: ${{ inputs.artifact_name }}
 
     - name: decompress build dir
       if: ${{ inputs.download_artifacts == 'true' }}
       shell: bash
-      run: tar -xzf build.tar.gz
+      run: |
+        if [ ! -f build.tar.gz ]; then
+          echo "::error::build.tar.gz not found. Ensure the build job uploaded 'build.tar.gz' and the artifact name matches '${{ inputs.artifact_name }}'."
+          ls -la
+          exit 1
+        fi
+        tar -xzf build.tar.gz -C "${GITHUB_WORKSPACE}"
+
+    - name: prepare test output dir
+      shell: bash
+      run: |
+        # Use provided input or generate per-run unique directory in runner temp
+        if [ -n "${{ inputs.test_output_dir }}" ]; then
+          TEST_OUTPUT_DIR="${{ inputs.test_output_dir }}"
+        else
+          TEST_OUTPUT_DIR="${RUNNER_TEMP:-/tmp}/test-results-${GITHUB_RUN_ID}-${GITHUB_JOB}"
+        fi
+        # Ensure fresh directory
+        rm -rf "${TEST_OUTPUT_DIR}"
+        mkdir -p "${TEST_OUTPUT_DIR}"
+        echo "TEST_OUTPUT_DIR=${TEST_OUTPUT_DIR}" >> "$GITHUB_ENV"
 
     - name: run tests
       shell: bash
-      run: ${{ inputs.command }}
       env:
-        TEST_OUTPUT_DIR: ${{ inputs.test_output_dir }}
+        TEST_OUTPUT_DIR: ${{ env.TEST_OUTPUT_DIR }}
+      run: ${{ inputs.command }}
 
     - name: Generate artifact name
       id: generate-name
       shell: bash
-      run: echo "artifact=rethinkdb-artifact-${{ github.run_id }}-$(date +%s)" >> $GITHUB_OUTPUT
+      run: echo "artifact=rethinkdb-artifact-${GITHUB_RUN_ID}-$(date +%s)" >> "$GITHUB_OUTPUT"
 
     - name: compress test artifacts for upload
       if: always()
       shell: bash
-      run: tar -czf ${{ steps.generate-name.outputs.artifact }}.tar.gz ${{ inputs.test_output_dir }}
+      run: |
+        ART="${{ steps.generate-name.outputs.artifact }}"
+        OUT_DIR="${TEST_OUTPUT_DIR}"
+        PARENT_DIR="$(dirname "$OUT_DIR")"
+        BASE_NAME="$(basename "$OUT_DIR")"
+        tar -czf "${ART}.tar.gz" -C "${PARENT_DIR}" "${BASE_NAME}"
 
     - name: upload test artifacts
       if: always()
