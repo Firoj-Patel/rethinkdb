@@ -92,7 +92,7 @@ jobs:
           fi
           rm -rf "${TEST_OUTPUT_DIR}"
           mkdir -p "${TEST_OUTPUT_DIR}"
-          echo "TEST_OUTPUT_DIR=${TEST_OUTPUT_DIR}
+          echo "TEST_OUTPUT_DIR=${TEST_OUTPUT_DIR}"
       
       - name: unit tests
         uses: ./.github/actions/tests
