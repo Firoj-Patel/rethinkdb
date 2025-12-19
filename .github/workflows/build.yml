@@ -67,7 +67,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ${{ github.job }}-artifacts
+          name: build-artifacts
           path: |
             config.mk
             build.tar.gz
@@ -82,8 +82,22 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-path: /usr/local/bin/python3.12
+      - name: prepare test output dir
+        shell: bash
+        run: |
+          if [ -n "${{ inputs.test_output_dir }}" ]; then
+            TEST_OUTPUT_DIR="${{ inputs.test_output_dir }}"
+          else
+            TEST_OUTPUT_DIR="${RUNNER_TEMP:-/tmp}/test-results-${GITHUB_RUN_ID}-${GITHUB_JOB}"
+          fi
+          rm -rf "${TEST_OUTPUT_DIR}"
+          mkdir -p "${TEST_OUTPUT_DIR}"
+          echo "TEST_OUTPUT_DIR=${TEST
+      
       - name: unit tests
         uses: ./.github/actions/tests
+        env:
+          TEST_OUTPUT_DIR: ${{ env.TEST_OUTPUT_DIR }}
         with:
           command: |
             export MAX_JOBS=$(python -c 'import multiprocessing; print(multiprocessing.cpu_count())')
