@@ -101,7 +101,7 @@ jobs:
         with:
           command: |
             export MAX_JOBS=$(python -c 'import multiprocessing; print(multiprocessing.cpu_count())')
-            test/run --verbose --jobs "${MAX_JOBS}" -o ${TEST_OUTPUT_DIR} -H unit
+            test/run --verbose --jobs "${MAX_JOBS}" -o ${RUNNER_TEMP:-/tmp}/test-results-${GITHUB_RUN_ID}-${GITHUB_JOB} -H unit
 
   # Execute the test runner for integration tests.
   # NOTE: integration tests are using the Python driver, hence we have to setup the
