@@ -11,7 +11,7 @@ inputs:
     required: false
   test_output_dir:
     description: Directory to store test output.
-    default: /tmp/test-results-${GITHUB_RUN_ID}-${GITHUB_JOB}
+    default: /tmp/test-results
     required: false
 
 # Composite step for using the test runner with multiple parameters.
