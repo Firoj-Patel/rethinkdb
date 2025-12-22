@@ -30,6 +30,7 @@ jobs:
         uses: ./.github/actions/tests
         with:
           command: |
+            [ ! -d "${TEST_OUTPUT_DIR}" ] && mkdir -p ${TEST_OUTPUT_DIR}
             ./scripts/check_style.sh | tee "${TEST_OUTPUT_DIR}/cpplint.log"
           download_artifacts: "false"
           # test_output_dir is handled by the composite action to be unique per run
