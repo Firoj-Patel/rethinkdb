@@ -6,8 +6,8 @@ name: "Build"
 #  update every script, which is a big effort. Also, this locks us into a
 #  given Python driver version (rethinkdb-python < 2.5).
 
+
 on:
- on:
   workflow_dispatch:
 
 jobs:
