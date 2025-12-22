@@ -43,7 +43,7 @@ runs:
           ls -la
           exit 1
         fi
-        # Extract to workspace (relative path avoids absolute path warnings)
+        # Extract into workspace (cleaner than absolute paths)
         tar -xzf build.tar.gz -C "${GITHUB_WORKSPACE}"
 
     - name: prepare test output dir
@@ -77,7 +77,13 @@ runs:
         OUT_DIR="${TEST_OUTPUT_DIR}"
         PARENT_DIR="$(dirname "$OUT_DIR")"
         BASE_NAME="$(basename "$OUT_DIR")"
+        # Ensure there is something to upload
+        if [ ! -d "$OUT_DIR" ]; then
+          echo "::warning::Test output dir '$OUT_DIR' missing; creating empty placeholder."
+          mkdir -p "$OUT_DIR"
+        fi
         tar -czf "${ART}.tar.gz" -C "${PARENT_DIR}" "${BASE_NAME}"
+        ls -la "${ART}.tar.gz"
 
     - name: upload test artifacts
       if: always()
