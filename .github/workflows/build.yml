@@ -1,4 +1,3 @@
-
 name: "Build"
 
 # NOTE: Although it is deprecated, we use Python 2, because all python scripts
@@ -8,27 +7,26 @@ name: "Build"
 
 on:
   workflow_dispatch: 
+
 jobs:
-  # Preflight runs every test and assertion that has no dependency on the build directory.
+  # Preflight runs every test and assertion that has no dependency on the build
+  # directory.
   preflight:
     runs-on: [self-hosted]
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-
-      # IMPORTANT for self-hosted s390x: use system-installed Python 3.12
-      - name: Use system Python 3.12
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-path: /usr/local/bin/python3.12
-
       - name: cpplint
         uses: ./.github/actions/tests
         with:
-          command: |
-            ./scripts/check_style.sh | tee "${TEST_OUTPUT_DIR}/cpplint.log"
-          download_artifacts: "false"
-          # test_output_dir is handled by the composite action to be unique per run
+          command: | 
+            [ ! -d "${TEST_OUTPUT_DIR}" ] && mkdir -p ${TEST_OUTPUT_DIR}
+            ./scripts/check_style.sh | tee ${TEST_OUTPUT_DIR}/cpplint.log
+          download_artifacts: false
+
 
   # Build job runs after the preflight finished successfully. It configures the
   # build system, then builds the DB.
@@ -38,7 +36,6 @@ jobs:
     needs: preflight
     steps:
       - uses: actions/checkout@v4
-
       - name: apt install
         env:
           DEBIAN_FRONTEND: noninteractive
@@ -64,14 +61,13 @@ jobs:
 
       - name: compress build artifacts for upload
         if: always()
-        run: tar -czf build.tar.gz build
+        run: tar -czf ${{ github.job }}.tar.gz build
 
       - name: upload build artifact
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          # Aligned with composite action's download
-          name: build-artifacts
+          name: ${{ github.job }}-artifacts
           path: |
             config.mk
             build.tar.gz
@@ -83,33 +79,28 @@ jobs:
     needs: build
     steps:
       - uses: actions/checkout@v4
-
-      - name: Use system Python 3.12
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-path: /usr/local/bin/python3.12
-
       - name: unit tests
         uses: ./.github/actions/tests
         with:
           command: |
             export MAX_JOBS=$(python -c 'import multiprocessing; print(multiprocessing.cpu_count())')
-            test/run --verbose --jobs "${MAX_JOBS}" -o "${TEST_OUTPUT_DIR}" -H unit
-          download_artifacts: "true"
+            test/run --verbose --jobs "${MAX_JOBS}" -o ${TEST_OUTPUT_DIR} -H unit
 
   # Execute the test runner for integration tests.
+  # NOTE: integration tests are using the Python driver, hence we have to setup the
+  #  driver and checkout the exact same commit hash as we do for other tests.
   integration-tests:
     runs-on: [self-hosted]
     timeout-minutes: 45
     needs: unit-tests
     steps:
       - uses: actions/checkout@v4
-
-      - name: Use system Python 3.12
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-path: /usr/local/bin/python3.12
-
       - name: integration tests
         uses: ./.github/actions/driver-tests
         with:
@@ -118,7 +109,7 @@ jobs:
           test_command: |
             export PYTHON_DRIVER=/tmp/python-driver/rethinkdb
             export MAX_JOBS=$(python -c 'import multiprocessing; print(multiprocessing.cpu_count())')
-            test/run --timeout 300 --jobs "${MAX_JOBS}" -o "${TEST_OUTPUT_DIR}" -H all '!unit' '!cpplint' '!long' '!disabled'
+            test/run --timeout 300 --jobs "${MAX_JOBS}" -o ${TEST_OUTPUT_DIR} -H all '!unit' '!cpplint' '!long' '!disabled'
 
   long-running-tests:
     runs-on: [self-hosted]
@@ -126,12 +117,9 @@ jobs:
     needs: unit-tests
     steps:
       - uses: actions/checkout@v4
-
-      - name: Use system Python 3.12
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-path: /usr/local/bin/python3.12
-
       - name: long running tests
         uses: ./.github/actions/driver-tests
         with:
@@ -140,9 +128,13 @@ jobs:
           test_command: |
             export PYTHON_DRIVER=/tmp/python-driver/rethinkdb
             export MAX_JOBS=$(python -c 'import multiprocessing; print(multiprocessing.cpu_count())')
-            test/run --timeout 900 --jobs "${MAX_JOBS}" -o "${TEST_OUTPUT_DIR}" -H long '!disabled'
+            test/run --timeout 900 --jobs "${MAX_JOBS}" -o ${TEST_OUTPUT_DIR} -H long '!disabled'
 
-  # Polyglot tests — Python
+  # Execute the test runner for polyglot tests.
+  # NOTE: We are not running "language group" tests (like `py`, `rb`, or `js`) because
+  #  those interpreter versions listed in the groups are way deprecated. Instead, we
+  #  are running one test per language as a sanity check. We should run language groups
+  #  when we ensured that drivers are supporting never interpreter versions.
   polyglot-tests-python:
     runs-on: [self-hosted]
     timeout-minutes: 15
@@ -151,12 +143,9 @@ jobs:
       - long-running-tests
     steps:
       - uses: actions/checkout@v4
-
-      - name: Use system Python 3.12
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-path: /usr/local/bin/python3.12
-
       - name: polyglot tests for python
         uses: ./.github/actions/driver-tests
         with:
@@ -165,7 +154,6 @@ jobs:
           interpreter: py3.12
           test_target: polyglot
 
-  # Polyglot tests — JavaScript
   polyglot-tests-javascript:
     runs-on: [self-hosted]
     timeout-minutes: 15
@@ -174,12 +162,9 @@ jobs:
       - long-running-tests
     steps:
       - uses: actions/checkout@v4
-
-      - name: Use system Python 3.12
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-path: /usr/local/bin/python3.12
-
       - uses: actions/setup-node@v3
         with:
           node-version: '16.14'
@@ -190,12 +175,14 @@ jobs:
           driver_name: javascript
           driver_dist_dir: /tmp/driver/dist
           repo_url: https://github.com/rethinkdb/rethinkdb-javascript.git
+          # TODO: This commit is pointing after driver extraction, hence it should be the baseline.
+          #  When all tests are passing using this commit hash, update the hash to the latest and
+          #  fix the newly raised issues.
           commit_hash: 9e3aa0a229d2f5759a5215844317dae4e7d58d10
           interpreter: js16.14
           test_target: polyglot
           install_command: npm install && npm run build
 
-  # Polyglot tests — Ruby
   polyglot-tests-ruby:
     runs-on: [self-hosted]
     timeout-minutes: 15
@@ -204,12 +191,9 @@ jobs:
       - long-running-tests
     steps:
       - uses: actions/checkout@v4
-
-      - name: Use system Python 3.12
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-path: /usr/local/bin/python3.12
-
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '2.7'
