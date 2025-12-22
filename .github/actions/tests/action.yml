@@ -11,7 +11,7 @@ inputs:
     default: "true"
     required: false
   test_output_dir:
-    description: Directory to store test output (will be overridden to a unique dir unless explicitly set).
+    description: Directory to store test output (override if needed; otherwise auto-generated per run).
     default: ""
     required: false
   artifact_name:
@@ -43,18 +43,17 @@ runs:
           ls -la
           exit 1
         fi
+        # Extract to workspace (relative path avoids absolute path warnings)
         tar -xzf build.tar.gz -C "${GITHUB_WORKSPACE}"
 
     - name: prepare test output dir
       shell: bash
       run: |
-        # Use provided input or generate per-run unique directory in runner temp
         if [ -n "${{ inputs.test_output_dir }}" ]; then
           TEST_OUTPUT_DIR="${{ inputs.test_output_dir }}"
         else
           TEST_OUTPUT_DIR="${RUNNER_TEMP:-/tmp}/test-results-${GITHUB_RUN_ID}-${GITHUB_JOB}"
         fi
-        # Ensure fresh directory
         rm -rf "${TEST_OUTPUT_DIR}"
         mkdir -p "${TEST_OUTPUT_DIR}"
         echo "TEST_OUTPUT_DIR=${TEST_OUTPUT_DIR}" >> "$GITHUB_ENV"
@@ -85,4 +84,3 @@ runs:
       uses: actions/upload-artifact@v4
       with:
         name: ${{ steps.generate-name.outputs.artifact }}
-        path: ${{ steps.generate-name.outputs.artifact }}.tar.gz
