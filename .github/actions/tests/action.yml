@@ -43,7 +43,7 @@ runs:
           ls -la
           exit 1
         fi
-        # Extract into workspace (cleaner than absolute paths)
+        # Extract into workspace (relative path avoids leading '/' warnings)
         tar -xzf build.tar.gz -C "${GITHUB_WORKSPACE}"
 
     - name: prepare test output dir
@@ -75,15 +75,20 @@ runs:
       run: |
         ART="${{ steps.generate-name.outputs.artifact }}"
         OUT_DIR="${TEST_OUTPUT_DIR}"
-        PARENT_DIR="$(dirname "$OUT_DIR")"
-        BASE_NAME="$(basename "$OUT_DIR")"
-        # Ensure there is something to upload
+        if [ -z "$OUT_DIR" ]; then
+          echo "::error::TEST_OUTPUT_DIR is empty; ensure previous step sets it."
+          exit 1
+        fi
+        # Ensure there's something to package (create placeholder if empty/missing)
         if [ ! -d "$OUT_DIR" ]; then
           echo "::warning::Test output dir '$OUT_DIR' missing; creating empty placeholder."
           mkdir -p "$OUT_DIR"
         fi
+        PARENT_DIR="$(dirname "$OUT_DIR")"
+        BASE_NAME="$(basename "$OUT_DIR")"
         tar -czf "${ART}.tar.gz" -C "${PARENT_DIR}" "${BASE_NAME}"
-        ls -la "${ART}.tar.gz"
+        echo "ARTIFACT_TAR=${ART}.tar.gz" >> "$GITHUB_ENV"
+               ls -la "${ART}.tar.gz"
 
     - name: upload test artifacts
       if: always()
