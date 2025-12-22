@@ -6,10 +6,8 @@ name: "Build"
 #  update every script, which is a big effort. Also, this locks us into a
 #  given Python driver version (rethinkdb-python < 2.5).
 
-
 on:
-  workflow_dispatch:
-
+  workflow_dispatch: 
 jobs:
   # Preflight runs every test and assertion that has no dependency on the build directory.
   preflight:
@@ -18,9 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # IMPORTANT for self-hosted on s390x:
-      # If actions/setup-python cannot fetch 3.12, install Python 3.12 on the host
-      # and point setup-python to that path (adjust if different).
+      # IMPORTANT for self-hosted s390x: use system-installed Python 3.12
       - name: Use system Python 3.12
         uses: actions/setup-python@v5
         with:
@@ -30,7 +26,6 @@ jobs:
         uses: ./.github/actions/tests
         with:
           command: |
-            [ ! -d "${TEST_OUTPUT_DIR}" ] && mkdir -p ${TEST_OUTPUT_DIR}
             ./scripts/check_style.sh | tee "${TEST_OUTPUT_DIR}/cpplint.log"
           download_artifacts: "false"
           # test_output_dir is handled by the composite action to be unique per run
@@ -75,7 +70,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          # Aligned to what the composite action downloads
+          # Aligned with composite action's download
           name: build-artifacts
           path: |
             config.mk
@@ -103,8 +98,6 @@ jobs:
           download_artifacts: "true"
 
   # Execute the test runner for integration tests.
-  # NOTE: integration tests are using the Python driver, hence we have to setup the
-  #  driver and checkout the exact same commit hash as we do for other tests.
   integration-tests:
     runs-on: [self-hosted]
     timeout-minutes: 45
@@ -149,7 +142,7 @@ jobs:
             export MAX_JOBS=$(python -c 'import multiprocessing; print(multiprocessing.cpu_count())')
             test/run --timeout 900 --jobs "${MAX_JOBS}" -o "${TEST_OUTPUT_DIR}" -H long '!disabled'
 
-  # Execute the test runner for polyglot tests.
+  # Polyglot tests — Python
   polyglot-tests-python:
     runs-on: [self-hosted]
     timeout-minutes: 15
@@ -172,6 +165,7 @@ jobs:
           interpreter: py3.12
           test_target: polyglot
 
+  # Polyglot tests — JavaScript
   polyglot-tests-javascript:
     runs-on: [self-hosted]
     timeout-minutes: 15
@@ -201,6 +195,7 @@ jobs:
           test_target: polyglot
           install_command: npm install && npm run build
 
+  # Polyglot tests — Ruby
   polyglot-tests-ruby:
     runs-on: [self-hosted]
     timeout-minutes: 15
