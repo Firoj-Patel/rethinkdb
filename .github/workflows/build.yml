@@ -1,3 +1,4 @@
+
 name: "Build"
 
 # NOTE: Although it is deprecated, we use Python 2, because all python scripts
@@ -6,7 +7,7 @@ name: "Build"
 #  given Python driver version (rethinkdb-python < 2.5).
 
 on:
-  workflow_dispatch: 
+  workflow_dispatch:
 
 jobs:
   # Preflight runs every test and assertion that has no dependency on the build
@@ -16,17 +17,22 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+        with:
+          clean: true
+
       - uses: actions/setup-python@v5
         with:
-          python-path: /usr/local/bin/python3.12
+          python-version: '3.12'
+
       - name: cpplint
         uses: ./.github/actions/tests
         with:
-          command: | 
-            [ ! -d "${TEST_OUTPUT_DIR}" ] && mkdir -p ${TEST_OUTPUT_DIR}
-            ./scripts/check_style.sh | tee ${TEST_OUTPUT_DIR}/cpplint.log
+          # Unique, per-run/per-job output dir; safe on self-hosted runners
+          test_output_dir: ${{ runner.temp }}/preflight-${{ github.run_id }}-${{ github.job }}
           download_artifacts: false
-
+          command: |
+            mkdir -p "${TEST_OUTPUT_DIR}"
+            ./scripts/check_style.sh | tee "${TEST_OUTPUT_DIR}/cpplint.log"
 
   # Build job runs after the preflight finished successfully. It configures the
   # build system, then builds the DB.
@@ -36,6 +42,9 @@ jobs:
     needs: preflight
     steps:
       - uses: actions/checkout@v4
+        with:
+          clean: true
+
       - name: apt install
         env:
           DEBIAN_FRONTEND: noninteractive
@@ -61,13 +70,14 @@ jobs:
 
       - name: compress build artifacts for upload
         if: always()
-        run: tar -czf ${{ github.job }}.tar.gz build
+        run: tar -czf build.tar.gz build
 
       - name: upload build artifact
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ${{ github.job }}-artifacts
+          # Match the expected name in the tests composite action
+          name: build-artifacts
           path: |
             config.mk
             build.tar.gz
@@ -79,15 +89,21 @@ jobs:
     needs: build
     steps:
       - uses: actions/checkout@v4
+        with:
+          clean: true
+
       - uses: actions/setup-python@v5
         with:
-          python-path: /usr/local/bin/python3.12
+          python-version: '3.12'
+
       - name: unit tests
         uses: ./.github/actions/tests
         with:
+          # Unique output dir; do NOT pre-create (test/run handles it)
+          test_output_dir: ${{ runner.temp }}/unit-${{ github.run_id }}-${{ github.job }}
           command: |
             export MAX_JOBS=$(python -c 'import multiprocessing; print(multiprocessing.cpu_count())')
-            test/run --verbose --jobs "${MAX_JOBS}" -o ${TEST_OUTPUT_DIR} -H unit
+            test/run --verbose --jobs "${MAX_JOBS}" -o "${TEST_OUTPUT_DIR}" -H unit
 
   # Execute the test runner for integration tests.
   # NOTE: integration tests are using the Python driver, hence we have to setup the
@@ -98,9 +114,13 @@ jobs:
     needs: unit-tests
     steps:
       - uses: actions/checkout@v4
+        with:
+          clean: true
+
       - uses: actions/setup-python@v5
         with:
-          python-path: /usr/local/bin/python3.12
+          python-version: '3.12'
+
       - name: integration tests
         uses: ./.github/actions/driver-tests
         with:
@@ -117,9 +137,13 @@ jobs:
     needs: unit-tests
     steps:
       - uses: actions/checkout@v4
+        with:
+          clean: true
+
       - uses: actions/setup-python@v5
         with:
-          python-path: /usr/local/bin/python3.12
+          python-version: '3.12'
+
       - name: long running tests
         uses: ./.github/actions/driver-tests
         with:
@@ -143,9 +167,13 @@ jobs:
       - long-running-tests
     steps:
       - uses: actions/checkout@v4
+        with:
+          clean: true
+
       - uses: actions/setup-python@v5
         with:
-          python-path: /usr/local/bin/python3.12
+          python-version: '3.12'
+
       - name: polyglot tests for python
         uses: ./.github/actions/driver-tests
         with:
@@ -162,10 +190,14 @@ jobs:
       - long-running-tests
     steps:
       - uses: actions/checkout@v4
+        with:
+          clean: true
+
       - uses: actions/setup-python@v5
         with:
-          python-path: /usr/local/bin/python3.12
-      - uses: actions/setup-node@v3
+          python-version: '3.12'
+
+      - uses: actions/setup-node@v4
         with:
           node-version: '16.14'
 
@@ -191,12 +223,23 @@ jobs:
       - long-running-tests
     steps:
       - uses: actions/checkout@v4
+        with:
+          clean: true
+
       - uses: actions/setup-python@v5
         with:
-          python-path: /usr/local/bin/python3.12
+          python-version: '3.12'
+
+      - name: Install Ruby build prerequisites (self-hosted)
+        run: |
+          sudo apt update && sudo apt install -y \
+            build-essential libssl-dev zlib1g-dev libreadline-dev libyaml-dev libffi-dev \
+            libgmp-dev
+
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '2.7'
+          bundler-cache: true
 
       - name: polyglot tests for ruby
         uses: ./.github/actions/driver-tests
