@@ -1,3 +1,4 @@
+
 name: Test base
 description: Base action for running steps
 
@@ -28,12 +29,21 @@ runs:
       uses: actions/download-artifact@v4
       if: ${{ inputs.download_artifacts == 'true' }}
       with:
+        # Must match the name used in the 'build' job
         name: build-artifacts
 
     - name: decompress build dir
       if: ${{ inputs.download_artifacts == 'true' }}
       shell: bash
       run: tar -xzf build.tar.gz
+
+    # Ensure the test output dir does not pre-exist: some runners abort if the dir exists.
+    - name: ensure clean test output dir
+      shell: bash
+      run: |
+        if [ -d "${{ inputs.test_output_dir }}" ]; then
+          rm -rf "${{ inputs.test_output_dir }}"
+        fi
 
     - name: run tests
       shell: bash
@@ -46,10 +56,21 @@ runs:
       shell: bash
       run: echo "artifact=rethinkdb-artifact-${{ github.run_id }}-$(date +%s)" >> $GITHUB_OUTPUT
 
+    # Compress test artifacts; if the dir doesn't exist (early abort), create an empty artifact so uploads are consistent.
     - name: compress test artifacts for upload
       if: always()
       shell: bash
-      run: tar -czf ${{ steps.generate-name.outputs.artifact }}.tar.gz ${{ inputs.test_output_dir }}
+      run: |
+        ART="${{ steps.generate-name.outputs.artifact }}.tar.gz"
+        OUTDIR="${{ inputs.test_output_dir }}"
+        if [ -d "${OUTDIR}" ]; then
+          # Tar the contents, not the absolute path, to avoid leading slashes.
+          tar -czf "${ART}" -C "${OUTDIR}" .
+        else
+          echo "No test output directory found at '${OUTDIR}'. Creating empty artifact."
+          mkdir -p _empty_artifact_dir
+          tar -czf "${ART}" -C _empty_artifact_dir .
+        fi
 
     - name: upload test artifacts
       if: always()
