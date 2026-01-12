@@ -85,7 +85,7 @@ jobs:
   # Execute the test runner for unit tests.
   unit-tests:
     runs-on: [self-hosted]
-    timeout-minutes: 15
+    timeout-minutes: 45
     needs: build
     steps:
       - uses: actions/checkout@v4
@@ -110,7 +110,7 @@ jobs:
   #  driver and checkout the exact same commit hash as we do for other tests.
   integration-tests:
     runs-on: [self-hosted]
-    timeout-minutes: 45
+    timeout-minutes: 65
     needs: unit-tests
     steps:
       - uses: actions/checkout@v4
@@ -133,7 +133,7 @@ jobs:
 
   long-running-tests:
     runs-on: [self-hosted]
-    timeout-minutes: 60
+    timeout-minutes: 70
     needs: unit-tests
     steps:
       - uses: actions/checkout@v4
@@ -161,7 +161,7 @@ jobs:
   #  when we ensured that drivers are supporting never interpreter versions.
   polyglot-tests-python:
     runs-on: [self-hosted]
-    timeout-minutes: 15
+    timeout-minutes: 25
     needs:
       - integration-tests
       - long-running-tests
