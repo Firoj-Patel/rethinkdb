@@ -23,9 +23,7 @@ jobs:
       - uses: actions/setup-python@v5
       - uses: ibm/setup-pz@v6
         with:
-          architecture: ppc64le
-          python-version: '3.13'
-      - run: python my_script.py
+          python-path: /usr/local/bin/python3.12
       - name: cpplint
         uses: ./.github/actions/tests
         with:
