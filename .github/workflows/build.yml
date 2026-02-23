@@ -101,7 +101,7 @@ jobs:
           # Unique output dir; do NOT pre-create (test/run handles it)
           test_output_dir: ${{ runner.temp }}/unit-${{ github.run_id }}-${{ github.job }}
           command: |
-            export export MAX_JOBS=2
+            export MAX_JOBS=2
             test/run --verbose --jobs "${MAX_JOBS}" -o "${TEST_OUTPUT_DIR}" -H unit
 
   # Execute the test runner for integration tests.
@@ -151,6 +151,7 @@ jobs:
           test_command: |
             export PYTHON_DRIVER=/tmp/python-driver/rethinkdb
             export MAX_JOBS=$(python -c 'import multiprocessing; print(multiprocessing.cpu_count())')
+            export MAX_JOBS=2
             test/run --timeout 900 --jobs "${MAX_JOBS}" -o ${TEST_OUTPUT_DIR} -H long '!disabled'
 
   # Execute the test runner for polyglot tests.
