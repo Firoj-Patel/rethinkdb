@@ -21,7 +21,6 @@ jobs:
           clean: true
 
       - uses: actions/setup-python@v5
-      - uses: ibm/setup-pz@v6
         with:
           python-path: /usr/local/bin/python3.12
       - name: cpplint
